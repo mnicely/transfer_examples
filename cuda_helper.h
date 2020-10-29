@@ -152,20 +152,17 @@ class MemCpy {
     cudaStream_t     cuda_streams[num_streams];
 
     // Helper functions
-    template<typename U>
-    U *PagedAllocate( const size_t &N );
+    T *PagedAllocate( const size_t &N );
 
-    template<typename U>
     struct PagedMemoryDeleter {
-        void operator( )( U *ptr );
+        void operator( )( T *ptr );
     };
 
-    template<typename U>
-    using UniquePagedPtr = std::unique_ptr<U, PagedMemoryDeleter<U>>;
+    using UniquePagedPtr = std::unique_ptr<T, PagedMemoryDeleter>;
 
     // Device variables
-    UniquePagedPtr<T> d_a {};
-    UniquePagedPtr<T> d_b {};
+    UniquePagedPtr d_a {};
+    UniquePagedPtr d_b {};
 
     T a { 5.0f };
     T b { 9.0f };
@@ -212,8 +209,8 @@ template<typename T>
 MemCpy<T>::MemCpy( const size_t &N ) :
     add_op( new Add<T>( ) ),
     sub_op( new Sub<T>( ) ),
-    d_a { PagedAllocate<T>( N ) },
-    d_b { PagedAllocate<T>( N ) } {
+    d_a { PagedAllocate( N ) },
+    d_b { PagedAllocate( N ) } {
 
     CUDA_RT_CALL( cudaGetDevice( &device ) );
     CUDA_RT_CALL( cudaDeviceGetAttribute( &sm_count, cudaDevAttrMultiProcessorCount, device ) );
@@ -243,17 +240,15 @@ MemCpy<T>::~MemCpy( ) noexcept {
 }
 
 template<typename T>
-template<typename U>
-U *MemCpy<T>::PagedAllocate( const size_t &N ) {
-    U *    ptr { nullptr };
-    size_t bytes { N * sizeof( U ) };
+T *MemCpy<T>::PagedAllocate( const size_t &N ) {
+    T *    ptr { nullptr };
+    size_t bytes { N * sizeof( T ) };
     CUDA_RT_CALL( cudaMalloc( reinterpret_cast<void **>( &ptr ), bytes ) );
     return ( ptr );
 }
 
 template<typename T>
-template<typename U>
-void MemCpy<T>::PagedMemoryDeleter<U>::operator( )( U *ptr ) {
+void MemCpy<T>::PagedMemoryDeleter::operator( )( T *ptr ) {
     if ( ptr ) {
         CUDA_RT_CALL( cudaFree( ptr ) );
     }
@@ -356,20 +351,17 @@ class MemCpyPinned : public MemCpy<T> {
 
   private:
     // Helper functions
-    template<typename U>
-    U *PinnedAllocate( const size_t &N );
+    T *PinnedAllocate( const size_t &N );
 
-    template<typename U>
     struct PinnedMemoryDeleter {
-        void operator( )( U *ptr );
+        void operator( )( T *ptr );
     };
 
-    template<typename U>
-    using UniquePinnedPtr = std::unique_ptr<U, PinnedMemoryDeleter<U>>;
+    using UniquePinnedPtr = std::unique_ptr<T, PinnedMemoryDeleter>;
 
     // Host variables
-    UniquePinnedPtr<T> h_a_pinned {};
-    UniquePinnedPtr<T> h_b_pinned {};
+    UniquePinnedPtr h_a_pinned {};
+    UniquePinnedPtr h_b_pinned {};
 
     size_t N {};
 };
@@ -379,8 +371,8 @@ MemCpyPinned<T>::MemCpyPinned( const size_t &N ) :
     MemCpy<T>( N ),
     N { N },
     size { N * sizeof( T ) },
-    h_a_pinned { PinnedAllocate<T>( N ) },
-    h_b_pinned { PinnedAllocate<T>( N ) } {
+    h_a_pinned { PinnedAllocate( N ) },
+    h_b_pinned { PinnedAllocate( N ) } {
 
     this->a_args[0] = reinterpret_cast<void *>( &this->N );
     this->a_args[1] = &this->b;
@@ -397,17 +389,15 @@ template<typename T>
 MemCpyPinned<T>::~MemCpyPinned( ) noexcept {}
 
 template<typename T>
-template<typename U>
-U *MemCpyPinned<T>::PinnedAllocate( const size_t &N ) {
-    U *    ptr { nullptr };
-    size_t bytes { N * sizeof( U ) };
+T *MemCpyPinned<T>::PinnedAllocate( const size_t &N ) {
+    T *    ptr { nullptr };
+    size_t bytes { N * sizeof( T ) };
     CUDA_RT_CALL( cudaHostAlloc( reinterpret_cast<void **>( &ptr ), bytes, cudaHostAllocDefault ) );
     return ( ptr );
 }
 
 template<typename T>
-template<typename U>
-void MemCpyPinned<T>::PinnedMemoryDeleter<U>::operator( )( U *ptr ) {
+void MemCpyPinned<T>::PinnedMemoryDeleter::operator( )( T *ptr ) {
     if ( ptr ) {
         CUDA_RT_CALL( cudaFreeHost( ptr ) );
     }
